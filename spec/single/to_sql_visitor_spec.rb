@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-
 RSpec.describe 'ToSql visitor', :migrations do
   let(:model) do
     Class.new(ActiveRecord::Base) do
