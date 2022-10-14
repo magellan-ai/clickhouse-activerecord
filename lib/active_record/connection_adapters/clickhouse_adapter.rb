@@ -58,6 +58,7 @@ module ActiveRecord
           super(m)
 
           register_class_with_limit m, %r(String), Type::String
+          register_class_with_limit m, 'Bool', Type::Boolean
           register_class_with_limit m, 'Date', Clickhouse::OID::Date
           register_class_with_limit m, 'DateTime', Clickhouse::OID::DateTime
 
