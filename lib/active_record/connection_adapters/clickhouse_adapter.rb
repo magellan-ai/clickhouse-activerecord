@@ -13,7 +13,6 @@ require 'active_record/connection_adapters/clickhouse/oid/big_integer'
 require 'active_record/connection_adapters/clickhouse/oid/map'
 require 'active_record/connection_adapters/clickhouse/oid/uuid'
 require 'active_record/connection_adapters/clickhouse/column'
-require 'active_record/connection_adapters/clickhouse/format_manager'
 require 'active_record/connection_adapters/clickhouse/quoting'
 require 'active_record/connection_adapters/clickhouse/schema_creation'
 require 'active_record/connection_adapters/clickhouse/schema_statements'
@@ -326,7 +325,7 @@ module ActiveRecord
           drop_table(table_name, options.merge(if_exists: true))
         end
 
-        execute(schema_creation.accept(td))
+        execute(schema_creation.accept(td), settings: request_settings)
       end
 
       def create_table(table_name, request_settings: {}, **options, &block)
@@ -343,7 +342,7 @@ module ActiveRecord
           drop_table(table_name, options.merge(if_exists: true))
         end
 
-        execute(schema_creation.accept(td))
+        execute(schema_creation.accept(td), settings: request_settings)
 
         if options[:with_distributed]
           distributed_table_name = options.delete(:with_distributed)
