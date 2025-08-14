@@ -25,6 +25,7 @@ Gem::Specification.new do |spec|
 
   spec.add_runtime_dependency 'bundler', '>= 1.13.4'
   spec.add_runtime_dependency 'activerecord', '>= 7.1', '< 9.0'
+  spec.add_runtime_dependency 'parslet', '~> 2.0'
 
   spec.add_development_dependency 'rake', '~> 13.0'
   spec.add_development_dependency 'rspec', '~> 3.4'
