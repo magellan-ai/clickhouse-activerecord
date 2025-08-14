@@ -6,18 +6,23 @@ require 'arel/nodes/grouping_sets'
 require 'arel/nodes/settings'
 require 'arel/nodes/using'
 require 'arel/nodes/limit_by'
+
+require 'active_record/connection_adapters/clickhouse/oid/subtypes/schema_parser'
 require 'active_record/connection_adapters/clickhouse/oid/array'
+require 'active_record/connection_adapters/clickhouse/oid/big_integer'
 require 'active_record/connection_adapters/clickhouse/oid/date'
 require 'active_record/connection_adapters/clickhouse/oid/date_time'
-require 'active_record/connection_adapters/clickhouse/oid/big_integer'
 require 'active_record/connection_adapters/clickhouse/oid/map'
+require 'active_record/connection_adapters/clickhouse/oid/tuple'
 require 'active_record/connection_adapters/clickhouse/oid/uuid'
+
 require 'active_record/connection_adapters/clickhouse/column'
 require 'active_record/connection_adapters/clickhouse/quoting'
 require 'active_record/connection_adapters/clickhouse/schema_creation'
 require 'active_record/connection_adapters/clickhouse/schema_statements'
 require 'active_record/connection_adapters/clickhouse/statement'
 require 'active_record/connection_adapters/clickhouse/table_definition'
+
 require 'net/http'
 require 'openssl'
 
@@ -113,6 +118,8 @@ module ActiveRecord
         uint64: { name: 'UInt64' },
         # uint128: { name: 'UInt128' }, not yet implemented in clickhouse
         uint256: { name: 'UInt256' },
+
+        tuple: { name: 'Tuple' }
       }.freeze
 
       include Clickhouse::SchemaStatements
@@ -233,18 +240,24 @@ module ActiveRecord
           register_class_with_limit m, %r(UInt16), Type::UnsignedInteger
           register_class_with_limit m, %r(UInt32), Type::UnsignedInteger
           register_class_with_limit m, %r(UInt64), Type::UnsignedInteger
-          #register_class_with_limit m, %r(UInt128), Type::UnsignedInteger #not implemnted in clickhouse
+          # register_class_with_limit m, %r(UInt128), Type::UnsignedInteger # not implemented in clickhouse
           register_class_with_limit m, %r(UInt256), Type::UnsignedInteger
 
           m.register_type %r(bool)i, ActiveModel::Type::Boolean.new
           m.register_type %r{uuid}i, Clickhouse::OID::Uuid.new
-          # register_class_with_limit m, %r(Array), Clickhouse::OID::Array
-          m.register_type(%r(Array)) do |sql_type|
-            Clickhouse::OID::Array.new(sql_type)
+          m.register_type(%r(\AArray)) do |sql_type|
+            subtype = m.fetch(Clickhouse::OID::Array.parse_subtype(sql_type))
+            Clickhouse::OID::Array.new(subtype)
           end
 
-          m.register_type(%r(Map)) do |sql_type|
+          m.register_type(%r(\AMap)) do |sql_type|
             Clickhouse::OID::Map.new(sql_type)
+          end
+
+          m.register_type(%r(\ATuple)) do |sql_type|
+            schema = Clickhouse::OID::Tuple.parse_schema(sql_type)
+                                           .transform_values { |type| m.fetch(type) }
+            Clickhouse::OID::Tuple.new(schema)
           end
         end
       end
@@ -260,6 +273,8 @@ module ActiveRecord
           '[' + value.map { |v| quote(v) }.join(', ') + ']'
         when Hash
           '{' + value.map { |k, v| "#{quote(k)}: #{quote(v)}" }.join(', ') + '}'
+        when Struct
+          '(' + value.map { |v| quote(v) }.join(', ') + ')'
         else
           super
         end

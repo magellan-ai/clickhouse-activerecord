@@ -6,57 +6,32 @@ module ActiveRecord
       module OID # :nodoc:
         class Array < Type::Value # :nodoc:
 
-          def initialize(sql_type)
-            @subtype = case sql_type
-                       when /U?Int\d+/
-                         :integer
-                       when /DateTime/
-                         :datetime
-                       when /Date/
-                         :date
-                       else
-                         :string
-            end
+          def self.parse_subtype(sql_type)
+            type_tree = Subtypes::SchemaParser.new.parse(sql_type)
+            Subtypes::SchemaNode.new(type_tree)
+                                .arg_list
+                                .first
+                                .type_expression
           end
 
-          def type
-            @subtype
+          delegate :type, to: :@subtype, allow_nil: true
+
+          def initialize(subtype)
+            @subtype = subtype
           end
 
           def deserialize(value)
-            if value.is_a?(::Array)
-              value.map { |item| deserialize(item) }
-            else
-              return value if value.nil?
-              case @subtype
-                when :integer
-                  value.to_i
-                when :datetime
-                  ::DateTime.parse(value)
-                when :date
-                  ::Date.parse(value)
-              else
-                super
-              end
-            end
+            return value.map { |item| deserialize(item) } if value.is_a?(::Array)
+            return value if value.nil?
+
+            @subtype.deserialize(value)
           end
 
           def serialize(value)
-            if value.is_a?(::Array)
-              value.map { |item| serialize(item) }
-            else
-              return value if value.nil?
-              case @subtype
-                when :integer
-                  value.to_i
-                when :datetime
-                  DateTime.new.serialize(value)
-                when :date
-                  Date.new.serialize(value)
-              else
-                super
-              end
-            end
+            return value.map { |item| serialize(item) } if value.is_a?(::Array)
+            return value if value.nil?
+
+            @subtype.serialize(value)
           end
 
         end

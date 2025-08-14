@@ -514,7 +514,7 @@ RSpec.describe 'Model', :migrations do
         }.to change { model.count }
         event = model.first
         expect(event.array_datetime.is_a?(Array)).to be_truthy
-        expect(event.array_datetime[0].is_a?(DateTime)).to be_truthy
+        expect(event.array_datetime[0].is_a?(Time)).to be_truthy
         expect(event.array_string[0].is_a?(String)).to be_truthy
         expect(event.array_string).to eq(%w[asdf jkl])
         expect(event.array_int.is_a?(Array)).to be_truthy
@@ -539,7 +539,7 @@ RSpec.describe 'Model', :migrations do
         expect(event.date.is_a?(Date)).to be_truthy
         expect(event.date).to eq(Date.parse('2022-12-06'))
         expect(event.array_datetime.is_a?(Array)).to be_truthy
-        expect(event.array_datetime[0].is_a?(DateTime)).to be_truthy
+        expect(event.array_datetime[0].is_a?(Time)).to be_truthy
         expect(event.array_datetime[0]).to eq('2022-12-06 15:22:49')
         expect(event.array_datetime[1]).to eq('2022-12-05 15:22:49')
       end
@@ -619,6 +619,156 @@ RSpec.describe 'Model', :migrations do
         expect(record.map_array_datetime['c'][0]).to eq(DateTime.parse('2022-12-05 15:22:49'))
         expect(record.map_array_datetime['c'][1]).to eq(DateTime.parse('2024-01-01 12:00:08'))
       end
+    end
+  end
+
+  describe 'Tuple' do
+    let!(:model) do
+      Class.new(ActiveRecord::Base) do
+        self.table_name = 'users'
+      end
+    end
+
+    before do
+      migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'model_tuples')
+      quietly { ActiveRecord::MigrationContext.new(migrations_dir).up }
+    end
+
+    describe '#create' do
+      it 'creates a new record with a hash of values' do
+        expect {
+          model.create!(
+            id:   1,
+            data: {
+              name: 'John',
+              num_pets: 3,
+              birthday: Date.new(2015, 3, 14)
+            }
+          )
+        }.to change { model.count }.by(1)
+
+        record = model.first
+        expect(record.data.name).to be_a(String) & eq('John')
+        expect(record.data.num_pets).to be_a(Integer) & eq(3)
+        expect(record.data.birthday).to be_a(Date) & eq(Date.new(2015, 3, 14))
+      end
+
+      it 'accepts keys as strings' do
+        expect {
+          model.create!(
+            id:   1,
+            data: {
+              'name'     => 'John',
+              'num_pets' => 3,
+              'birthday' => Date.new(2015, 3, 14)
+            }
+          )
+        }.to change { model.count }.by(1)
+
+        record = model.first
+        expect(record.data.name).to be_a(String) & eq('John')
+        expect(record.data.num_pets).to be_a(Integer) & eq(3)
+        expect(record.data.birthday).to be_a(Date) & eq(Date.new(2015, 3, 14))
+      end
+
+      it 'creates a new record with an array of values' do
+        expect {
+          model.create!(
+            id:   1,
+            data: ['John', 3, Date.new(2015, 3, 14)]
+          )
+        }.to change { model.count }.by(1)
+
+        record = model.first
+        expect(record.data.name).to be_a(String) & eq('John')
+        expect(record.data.num_pets).to be_a(Integer) & eq(3)
+        expect(record.data.birthday).to be_a(Date) & eq(Date.new(2015, 3, 14))
+      end
+
+      it 'creates with insert all' do
+        expect {
+          model.insert_all(
+            [
+              {
+                id: 1,
+                data: {
+                  name: 'John',
+                  num_pets: 3,
+                  birthday: Date.new(2015, 3, 14)
+                }
+              }
+            ]
+          )
+        }.to change { model.count }.by(1)
+      end
+
+      it 'deserializes elements to the correct subtypes on read' do
+        model.connection.insert("INSERT INTO #{model.table_name} (id, data) VALUES (1, ('John', 3, '2015-03-14'))")
+        expect(model.count).to eq(1)
+        record = model.first
+
+        expect(record.data.class.members).to eq [:name, :num_pets, :birthday]
+
+        expect(record.data.name).to be_a(String) & eq('John')
+        expect(record.data.num_pets).to be_a(Integer) & eq(3)
+        expect(record.data.birthday).to be_a(Date) & eq(Date.new(2015, 3, 14))
+      end
+
+      it 'can accept instances of an internal Tuple Struct' do
+        record = model.create!(
+          id:   1,
+          data: ['John', 3, Date.new(2015, 3, 14)]
+        )
+
+        data = record.data
+        data.name = 'Jane'
+        data.num_pets = 1
+        data.birthday = Date.new(2016, 4, 15)
+        model.create!(
+          id:   2,
+          data: data
+        )
+
+        record = model.find(2)
+        expect(record.data.name).to be_a(String) & eq('Jane')
+        expect(record.data.num_pets).to be_a(Integer) & eq(1)
+        expect(record.data.birthday).to be_a(Date) & eq(Date.new(2016, 4, 15))
+      end
+    end
+  end
+
+  describe 'complex types' do
+    let!(:model) do
+      Class.new(ActiveRecord::Base) do
+        self.table_name = 'users'
+      end
+    end
+
+    before do
+      migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'model_complex_types')
+      quietly { ActiveRecord::MigrationContext.new(migrations_dir).up }
+    end
+
+    it 'can handle complex nested types correctly' do
+      model.connection.insert(<<~SQL.squish)
+        INSERT INTO #{model.table_name}
+        (id, tuple_with_arrays, array_of_tuples)
+        VALUES
+        (1, (['John', 'Doe'], '2015-03-14'), [('Jane', 10), ('Ryan', 3)])
+      SQL
+      expect(model.count).to eq(1)
+      record = model.first
+
+      expect(record.tuple_with_arrays.class.members).to eq [:names, :birthday]
+      expect(record.tuple_with_arrays.names).to be_a(Array) & all(be_a(String)) & eq(%w[John Doe])
+      expect(record.tuple_with_arrays.birthday).to be_a(Date) & eq(Date.new(2015, 3, 14))
+
+      inner_tuple_class = record.array_of_tuples.first.class
+      expect(inner_tuple_class.members).to eq [:name, :num_pets]
+      expect(record.array_of_tuples[0][:name]).to be_a(String) & eq('Jane')
+      expect(record.array_of_tuples[0][:num_pets]).to be_a(Integer) & eq(10)
+      expect(record.array_of_tuples[1][:name]).to be_a(String) & eq('Ryan')
+      expect(record.array_of_tuples[1][:num_pets]).to be_a(Integer) & eq(3)
     end
   end
 end

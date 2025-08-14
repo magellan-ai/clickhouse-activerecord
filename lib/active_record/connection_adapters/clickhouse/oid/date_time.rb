@@ -6,6 +6,15 @@ module ActiveRecord
       module OID # :nodoc:
         class DateTime < Type::DateTime # :nodoc:
 
+          def deserialize(value)
+            case value = super
+            when ::String
+              ::Time.parse(value)
+            else
+              value
+            end
+          end
+
           def serialize(value)
             value = super
             return unless value
