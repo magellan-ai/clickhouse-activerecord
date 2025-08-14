@@ -13,6 +13,7 @@ require 'active_record/connection_adapters/clickhouse/oid/big_integer'
 require 'active_record/connection_adapters/clickhouse/oid/date'
 require 'active_record/connection_adapters/clickhouse/oid/date_time'
 require 'active_record/connection_adapters/clickhouse/oid/map'
+require 'active_record/connection_adapters/clickhouse/oid/tuple'
 require 'active_record/connection_adapters/clickhouse/oid/uuid'
 
 require 'active_record/connection_adapters/clickhouse/column'
@@ -114,6 +115,8 @@ module ActiveRecord
         uint64: { name: 'UInt64' },
         # uint128: { name: 'UInt128' }, not yet implemented in clickhouse
         uint256: { name: 'UInt256' },
+
+        tuple: { name: 'Tuple' }
       }.freeze
 
       include Clickhouse::SchemaStatements
@@ -245,6 +248,12 @@ module ActiveRecord
           m.register_type(%r(Map)) do |sql_type|
             Clickhouse::OID::Map.new(sql_type)
           end
+
+          m.register_type(%r(\ATuple)) do |sql_type|
+            schema = Clickhouse::OID::Tuple.parse_schema(sql_type)
+                                           .transform_values { |type| m.fetch(type) }
+            Clickhouse::OID::Tuple.new(schema)
+          end
         end
       end
 
@@ -259,6 +268,8 @@ module ActiveRecord
           '[' + value.map { |v| quote(v) }.join(', ') + ']'
         when Hash
           '{' + value.map { |k, v| "#{quote(k)}: #{quote(v)}" }.join(', ') + '}'
+        when Struct
+          '(' + value.map { |v| quote(v) }.join(', ') + ')'
         else
           super
         end

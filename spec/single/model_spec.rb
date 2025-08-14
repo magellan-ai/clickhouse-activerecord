@@ -505,4 +505,119 @@ RSpec.describe 'Model', :migrations do
       end
     end
   end
+
+  describe 'Tuple' do
+    let!(:model) do
+      Class.new(ActiveRecord::Base) do
+        self.table_name = 'users'
+      end
+    end
+
+    before do
+      migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'model_tuples')
+      quietly { ActiveRecord::MigrationContext.new(migrations_dir).up }
+    end
+
+    describe '#create' do
+      it 'creates a new record with a hash of values' do
+        expect {
+          model.create!(
+            id:   1,
+            data: {
+              name: 'John',
+              num_pets: 3,
+              birthday: Date.new(2015, 3, 14)
+            }
+          )
+        }.to change { model.count }.by(1)
+
+        record = model.first
+        expect(record.data.name).to be_a(String) & eq('John')
+        expect(record.data.num_pets).to be_a(Integer) & eq(3)
+        expect(record.data.birthday).to be_a(Date) & eq(Date.new(2015, 3, 14))
+      end
+
+      it 'accepts keys as strings' do
+        expect {
+          model.create!(
+            id:   1,
+            data: {
+              'name'     => 'John',
+              'num_pets' => 3,
+              'birthday' => Date.new(2015, 3, 14)
+            }
+          )
+        }.to change { model.count }.by(1)
+
+        record = model.first
+        expect(record.data.name).to be_a(String) & eq('John')
+        expect(record.data.num_pets).to be_a(Integer) & eq(3)
+        expect(record.data.birthday).to be_a(Date) & eq(Date.new(2015, 3, 14))
+      end
+
+      it 'creates a new record with an array of values' do
+        expect {
+          model.create!(
+            id:   1,
+            data: ['John', 3, Date.new(2015, 3, 14)]
+          )
+        }.to change { model.count }.by(1)
+
+        record = model.first
+        expect(record.data.name).to be_a(String) & eq('John')
+        expect(record.data.num_pets).to be_a(Integer) & eq(3)
+        expect(record.data.birthday).to be_a(Date) & eq(Date.new(2015, 3, 14))
+      end
+
+      it 'creates with insert all' do
+        expect {
+          model.insert_all(
+            [
+              {
+                id: 1,
+                data: {
+                  name: 'John',
+                  num_pets: 3,
+                  birthday: Date.new(2015, 3, 14)
+                }
+              }
+            ]
+          )
+        }.to change { model.count }.by(1)
+      end
+
+      it 'deserializes elements to the correct subtypes on read' do
+        model.connection.insert("INSERT INTO #{model.table_name} (id, data) VALUES (1, ('John', 3, '2015-03-14'))")
+        expect(model.count).to eq(1)
+        record = model.first
+
+        expect(record.data.class.members).to eq [:name, :num_pets, :birthday]
+
+        expect(record.data.name).to be_a(String) & eq('John')
+        expect(record.data.num_pets).to be_a(Integer) & eq(3)
+        expect(record.data.birthday).to be_a(Date) & eq(Date.new(2015, 3, 14))
+      end
+
+      it 'can accept instances of an internal Tuple Struct' do
+        record = model.create!(
+          id:   1,
+          data: ['John', 3, Date.new(2015, 3, 14)]
+        )
+
+        data = record.data
+        data.name = 'Jane'
+        data.num_pets = 1
+        data.birthday = Date.new(2016, 4, 15)
+        model.create!(
+          id:   2,
+          data: data
+        )
+
+        record = model.find(2)
+        expect(record.data.name).to be_a(String) & eq('Jane')
+        expect(record.data.num_pets).to be_a(Integer) & eq(1)
+        expect(record.data.birthday).to be_a(Date) & eq(Date.new(2016, 4, 15))
+      end
+    end
+  end
 end
