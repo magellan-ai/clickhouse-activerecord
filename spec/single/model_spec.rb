@@ -398,7 +398,7 @@ RSpec.describe 'Model', :migrations do
         }.to change { model.count }
         event = model.first
         expect(event.array_datetime.is_a?(Array)).to be_truthy
-        expect(event.array_datetime[0].is_a?(DateTime)).to be_truthy
+        expect(event.array_datetime[0].is_a?(Time)).to be_truthy
         expect(event.array_string[0].is_a?(String)).to be_truthy
         expect(event.array_string).to eq(%w[asdf jkl])
         expect(event.array_int.is_a?(Array)).to be_truthy
@@ -423,7 +423,7 @@ RSpec.describe 'Model', :migrations do
         expect(event.date.is_a?(Date)).to be_truthy
         expect(event.date).to eq(Date.parse('2022-12-06'))
         expect(event.array_datetime.is_a?(Array)).to be_truthy
-        expect(event.array_datetime[0].is_a?(DateTime)).to be_truthy
+        expect(event.array_datetime[0].is_a?(Time)).to be_truthy
         expect(event.array_datetime[0]).to eq('2022-12-06 15:22:49')
         expect(event.array_datetime[1]).to eq('2022-12-05 15:22:49')
       end
