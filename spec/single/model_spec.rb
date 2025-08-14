@@ -620,4 +620,39 @@ RSpec.describe 'Model', :migrations do
       end
     end
   end
+
+  describe 'complex types' do
+    let!(:model) do
+      Class.new(ActiveRecord::Base) do
+        self.table_name = 'users'
+      end
+    end
+
+    before do
+      migrations_dir = File.join(FIXTURES_PATH, 'migrations', 'model_complex_types')
+      quietly { ActiveRecord::MigrationContext.new(migrations_dir).up }
+    end
+
+    it 'can handle complex nested types correctly' do
+      model.connection.insert(<<~SQL.squish)
+        INSERT INTO #{model.table_name}
+        (id, tuple_with_arrays, array_of_tuples)
+        VALUES
+        (1, (['John', 'Doe'], '2015-03-14'), [('Jane', 10), ('Ryan', 3)])
+      SQL
+      expect(model.count).to eq(1)
+      record = model.first
+
+      expect(record.tuple_with_arrays.class.members).to eq [:names, :birthday]
+      expect(record.tuple_with_arrays.names).to be_a(Array) & all(be_a(String)) & eq(%w[John Doe])
+      expect(record.tuple_with_arrays.birthday).to be_a(Date) & eq(Date.new(2015, 3, 14))
+
+      inner_tuple_class = record.array_of_tuples.first.class
+      expect(inner_tuple_class.members).to eq [:name, :num_pets]
+      expect(record.array_of_tuples[0][:name]).to be_a(String) & eq('Jane')
+      expect(record.array_of_tuples[0][:num_pets]).to be_a(Integer) & eq(10)
+      expect(record.array_of_tuples[1][:name]).to be_a(String) & eq('Ryan')
+      expect(record.array_of_tuples[1][:num_pets]).to be_a(Integer) & eq(3)
+    end
+  end
 end

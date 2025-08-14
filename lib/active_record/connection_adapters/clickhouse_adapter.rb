@@ -241,11 +241,12 @@ module ActiveRecord
 
           m.register_type %r(bool)i, ActiveModel::Type::Boolean.new
           m.register_type %r{uuid}i, Clickhouse::OID::Uuid.new
-          m.register_type(%r(Array)) do |sql_type|
-            Clickhouse::OID::Array.new(sql_type)
+          m.register_type(%r(\AArray)) do |sql_type|
+            subtype = m.fetch(Clickhouse::OID::Array.parse_subtype(sql_type))
+            Clickhouse::OID::Array.new(subtype)
           end
 
-          m.register_type(%r(Map)) do |sql_type|
+          m.register_type(%r(\AMap)) do |sql_type|
             Clickhouse::OID::Map.new(sql_type)
           end
 

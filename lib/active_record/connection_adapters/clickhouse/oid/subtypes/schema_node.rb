@@ -12,7 +12,7 @@ module ActiveRecord
             def initialize(tree)
               @name = tree[:name]
               @type = tree[:type]
-              @arg_list = Array(tree[:arg_list]).map { |subtree| subtree.key?(:int) ? subtree[:int].to_i : SchemaNode.new(subtree) }
+              @arg_list = recursively_parse(tree[:arg_list])
             end
 
             def name
@@ -40,6 +40,13 @@ module ActiveRecord
             end
 
             private
+
+            def recursively_parse(arg_list)
+              return if arg_list.nil?
+
+              arg_list = [arg_list] unless arg_list.is_a?(::Array)
+              arg_list.map { |subtree| subtree.key?(:int) ? subtree[:int].to_i : SchemaNode.new(subtree) }
+            end
 
             def quoted_name
               "\"#{name}\" " if name?
