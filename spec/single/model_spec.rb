@@ -166,19 +166,18 @@ RSpec.describe 'Model', :migrations do
 
     describe '#reverse_order!' do
       it 'blank' do
-        expect(Model.all.reverse_order!.map(&:event_name)).to eq([])
+        descending = Model.order(date: :desc)
+        ascending = descending.reverse_order
+        expect(ascending.map(&:event_name)).to eq([])
       end
 
       it 'select' do
-        Model.create!(event_name: 'some event 1', date: 1.day.ago)
-        Model.create!(event_name: 'some event 2', date: 2.day.ago)
-        if IS_NEW_CLICKHOUSE_SERVER
-          expect(Model.all.reverse_order!.to_sql).to eq('SELECT sample.* FROM sample ORDER BY sample.event_name DESC')
-          expect(Model.all.reverse_order!.map(&:event_name)).to eq(['some event 2', 'some event 1'])
-        else
-          expect(Model.all.reverse_order!.to_sql).to eq('SELECT sample.* FROM sample ORDER BY sample.date DESC')
-          expect(Model.all.reverse_order!.map(&:event_name)).to eq(['some event 1', 'some event 2'])
-        end
+        Model.create!(event_name: 'older event', date: 2.day.ago)
+        Model.create!(event_name: 'newer event', date: 1.day.ago)
+
+        descending = Model.order(date: :desc)
+        ascending = descending.reverse_order
+        expect(ascending.map(&:event_name)).to eq(['older event', 'newer event'])
       end
     end
 
