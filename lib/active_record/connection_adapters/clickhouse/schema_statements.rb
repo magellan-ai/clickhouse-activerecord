@@ -121,7 +121,7 @@ module ActiveRecord
         def show_create_function(function)
           result = do_system_execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' AND name = '#{function}'")
           return if result.nil?
-          result['data'].flatten.first
+          result['data'].flatten.first.sub(/\ACREATE FUNCTION/, 'CREATE OR REPLACE FUNCTION')
         end
 
         def table_options(table)
