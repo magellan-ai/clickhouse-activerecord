@@ -40,13 +40,10 @@ module ClickhouseActiverecord
       functions = connection.execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' ORDER BY name")['data']
                             .flatten
                             .map { |function| function.gsub('\\n', "\n") }
-      functions = connection.execute("SELECT create_query FROM system.functions WHERE origin = 'SQLUserDefined' ORDER BY name")['data']
-        .flatten
-        .map { |function| function.gsub('\\n', "\n") }
       table_defs = connection.execute("SHOW TABLES FROM #{@configuration.database}")['data']
-        .flatten
-        .reject { |name| /\.inner/.match?(name) || %w[schema_migrations ar_internal_metadata].include?(name) }
-        .map { |name| connection.show_create_table(name, single_line: false).gsub("#{@configuration.database}.", '') }
+                            .flatten
+                            .reject { |name| /\.inner/.match?(name) || %w[schema_migrations ar_internal_metadata].include?(name) }
+                            .map { |name| connection.show_create_table(name, single_line: false).gsub("#{@configuration.database}.", '') }
       views, tables = table_defs.partition { |sql| sql.match(/^CREATE\s+(MATERIALIZED\s+)?VIEW/) }
       mat_views, views = views.partition { |sql| sql.match(/^CREATE\s+MATERIALIZED\s+VIEW/) }
 

@@ -2,7 +2,6 @@ module ActiveRecord
   module ConnectionAdapters
     module Clickhouse
       class Column < ActiveRecord::ConnectionAdapters::Column
-
         attr_reader :codec
 
         def initialize(*, codec: nil, **)
