@@ -288,13 +288,6 @@ module ActiveRecord
 
       # SCHEMA STATEMENTS ========================================
 
-      def primary_key(table_name)
-        pk = table_structure(table_name).map(&:first).detect { |v| v == 'id' }
-        return 'id' if pk == 'id'
-
-        false
-      end
-
       def primary_keys(table_name)
         if server_version.to_f >= 23.4
           structure = do_system_execute("SHOW COLUMNS FROM `#{table_name}`")
